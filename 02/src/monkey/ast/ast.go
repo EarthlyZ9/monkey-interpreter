@@ -7,23 +7,26 @@ import (
 )
 
 // The base Node interface
+
+// Node 기본 노드 인터페이스
 type Node interface {
-	TokenLiteral() string
+	TokenLiteral() string // 디버깅 용도
 	String() string
 }
 
-// All statement nodes implement this
+// Statement 노드인 경우: 명령문 -> 실행되지만 값을 반환하지 않음
 type Statement interface {
 	Node
-	statementNode()
+	statementNode() // // Statement 임을 구분하기 위한 더미 메서드이다. 실제 로직이 담기지 않는다.
 }
 
-// All expression nodes implement this
+// Expression 노드인 경우: 표현식 -> 항상 값을 반환함
 type Expression interface {
 	Node
-	expressionNode()
+	expressionNode() // Expression 임을 구분하기 위한 더미 메서드이다. 실제 로직이 담기지 않는다.
 }
 
+// Program 모든 AST 의 root node: Node 인터페이스를 구현한다
 type Program struct {
 	Statements []Statement
 }
@@ -35,7 +38,6 @@ func (p *Program) TokenLiteral() string {
 		return ""
 	}
 }
-
 func (p *Program) String() string {
 	var out bytes.Buffer
 
@@ -47,6 +49,8 @@ func (p *Program) String() string {
 }
 
 // Statements
+
+// LetStatement represents a 'let' statement
 type LetStatement struct {
 	Token token.Token // the token.LET token
 	Name  *Identifier
@@ -71,6 +75,7 @@ func (ls *LetStatement) String() string {
 	return out.String()
 }
 
+// ReturnStatement represents a 'return' statement
 type ReturnStatement struct {
 	Token       token.Token // the 'return' token
 	ReturnValue Expression
@@ -124,6 +129,8 @@ func (bs *BlockStatement) String() string {
 }
 
 // Expressions
+
+// 식별자 (변수)
 type Identifier struct {
 	Token token.Token // the token.IDENT token
 	Value string

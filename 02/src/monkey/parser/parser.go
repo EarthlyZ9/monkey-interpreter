@@ -96,6 +96,8 @@ func (p *Parser) peekTokenIs(t token.TokenType) bool {
 	return p.peekToken.Type == t
 }
 
+// expectPeek 다음 토큰이 t 타입인지 확인하고, 맞다면 토큰을 진행시킨다.
+// 만약 기대하는 타입이 아니라면 에러를 기록하고 false 를 반환한다.
 func (p *Parser) expectPeek(t token.TokenType) bool {
 	if p.peekTokenIs(t) {
 		p.nextToken()
@@ -121,6 +123,7 @@ func (p *Parser) noPrefixParseFnError(t token.TokenType) {
 	p.errors = append(p.errors, msg)
 }
 
+// ParseProgram 파서 entrypoint 가 되며 프로그램의 모든 문장을 파싱한다. (AST 생성)
 func (p *Parser) ParseProgram() *ast.Program {
 	program := &ast.Program{}
 	program.Statements = []ast.Statement{}
@@ -136,6 +139,7 @@ func (p *Parser) ParseProgram() *ast.Program {
 	return program
 }
 
+// parseStatement 토큰 타입에 따라 관련 파서 메서드를 호출한다.
 func (p *Parser) parseStatement() ast.Statement {
 	switch p.curToken.Type {
 	case token.LET:
@@ -147,23 +151,28 @@ func (p *Parser) parseStatement() ast.Statement {
 	}
 }
 
+// parseLetStatement let 문을 파싱한다.
 func (p *Parser) parseLetStatement() *ast.LetStatement {
 	stmt := &ast.LetStatement{Token: p.curToken}
 
+	// 1. 내부적으로 nextToken 을 호출하여 토큰을 진행시키고, token.IDENT 를 기대한다.
+	// 즉 여기선 'let' 이 올 것을 기대함
 	if !p.expectPeek(token.IDENT) {
 		return nil
 	}
-
+	// 2. 실제 변수명을 파싱하여 Identifier 노드를 생성한다.
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-
+	// 3. 내부적으로 nextToken 을 호출하여 토큰을 진행시키고, token.ASSIGN 을 기대한다.
+	// 즉, = 이 올 것을 기대함.
 	if !p.expectPeek(token.ASSIGN) {
 		return nil
 	}
 
+	// 4. 내부적으로 nextToken 을 호출하여 토큰을 진행시키고, 변수의 값을 파싱한다. (우항 부분)
 	p.nextToken()
-
 	stmt.Value = p.parseExpression(LOWEST)
 
+	// 다음 토큰이 세미콜론이면 다음 토큰으로 진행한다.
 	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
@@ -171,13 +180,18 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 	return stmt
 }
 
+// parseReturnStatement return 문을 파싱한다.
 func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
+	// 1. 토큰 타입을 읽어 statment 노드를 생성한 뒤,
 	stmt := &ast.ReturnStatement{Token: p.curToken}
 
+	// 2. 다음 토큰으로 진행한다.
 	p.nextToken()
 
+	// 3. 우항을 읽는다.
 	stmt.ReturnValue = p.parseExpression(LOWEST)
 
+	// 4. 마지막 토큰이 세미콜론임을 확인하고, 세미콜론이라면 다음 토큰으로 진행한다.
 	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
@@ -185,6 +199,7 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	return stmt
 }
 
+// parseExpressionStatement 표현식 문을 파싱한다.
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 
