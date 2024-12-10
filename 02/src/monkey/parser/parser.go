@@ -31,6 +31,8 @@ var precedences = map[token.TokenType]int{
 	token.LPAREN:   CALL,
 }
 
+// 각각의 토큰 타입은 토큰이 전위 연산자로 쓰였는지 혹은 중위 연산자로 쓰였는지에 따라 다르게 처리된다.
+// 이 실습에서는 후위 연산자는 생략한다.
 type (
 	prefixParseFn func() ast.Expression
 	infixParseFn  func(ast.Expression) ast.Expression
@@ -43,10 +45,14 @@ type Parser struct {
 	curToken  token.Token
 	peekToken token.Token
 
+	// 토큰 타입에 따라 어떤 파싱 함수를 호출할지 결정하는 맵
 	prefixParseFns map[token.TokenType]prefixParseFn
 	infixParseFns  map[token.TokenType]infixParseFn
 }
 
+// New 파서를 생성한다.
+// 이 파서는 프랫 파서로, 특정 파싱 함수를 특정 토큰과 연관짓는다.
+// 예를 들어 A 라는 토큰을 만나면 A 를 파싱하는 함수를 호출하고, ast 노드를 반환한다.
 func New(l *lexer.Lexer) *Parser {
 	p := &Parser{
 		l:      l,
@@ -54,10 +60,10 @@ func New(l *lexer.Lexer) *Parser {
 	}
 
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
-	p.registerPrefix(token.IDENT, p.parseIdentifier)
-	p.registerPrefix(token.INT, p.parseIntegerLiteral)
-	p.registerPrefix(token.BANG, p.parsePrefixExpression)
-	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+	p.registerPrefix(token.IDENT, p.parseIdentifier)       // 식별자
+	p.registerPrefix(token.INT, p.parseIntegerLiteral)     // 정수 리터럴
+	p.registerPrefix(token.BANG, p.parsePrefixExpression)  // 전위 연산자
+	p.registerPrefix(token.MINUS, p.parsePrefixExpression) // 전위 연산자
 	p.registerPrefix(token.TRUE, p.parseBoolean)
 	p.registerPrefix(token.FALSE, p.parseBoolean)
 	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
@@ -118,6 +124,7 @@ func (p *Parser) peekError(t token.TokenType) {
 	p.errors = append(p.errors, msg)
 }
 
+// noPrefixParseFnError 전위 연산자 파싱 함수가 없을 때 에러를 기록한다.
 func (p *Parser) noPrefixParseFnError(t token.TokenType) {
 	msg := fmt.Sprintf("no prefix parse function for %s found", t)
 	p.errors = append(p.errors, msg)
@@ -170,7 +177,7 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 
 	// 4. 내부적으로 nextToken 을 호출하여 토큰을 진행시키고, 변수의 값을 파싱한다. (우항 부분)
 	p.nextToken()
-	stmt.Value = p.parseExpression(LOWEST)
+	stmt.Value = p.parseExpression(LOWEST) // TODO: 왜 LOWEST 인지 이해 필요
 
 	// 다음 토큰이 세미콜론이면 다음 토큰으로 진행한다.
 	if p.peekTokenIs(token.SEMICOLON) {
@@ -189,7 +196,7 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	p.nextToken()
 
 	// 3. 우항을 읽는다.
-	stmt.ReturnValue = p.parseExpression(LOWEST)
+	stmt.ReturnValue = p.parseExpression(LOWEST) // TODO: 왜 LOWEST 인지 이해 필요
 
 	// 4. 마지막 토큰이 세미콜론임을 확인하고, 세미콜론이라면 다음 토큰으로 진행한다.
 	if p.peekTokenIs(token.SEMICOLON) {
@@ -199,11 +206,11 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	return stmt
 }
 
-// parseExpressionStatement 표현식 문을 파싱한다.
+// parseExpressionStatement 표현식문을 파싱하기 위한 Entrypoint 가 되는 함수
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 
-	stmt.Expression = p.parseExpression(LOWEST)
+	stmt.Expression = p.parseExpression(LOWEST) // TODO: 왜 LOWEST 인지 이해 필요
 
 	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
@@ -212,9 +219,12 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	return stmt
 }
 
+// parseExpression 표현식을 실제 파싱한다.
+// precedence 는 연산자 우선순위를 나타낸다. (함수를 호출한 쪽에서만 알고 있는 우선순위를 전달해주는 것임)
 func (p *Parser) parseExpression(precedence int) ast.Expression {
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
+		// 연관된 전위 연산자 파싱 함수가 없음 -> 에러 기록 후 return nil
 		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
@@ -250,10 +260,12 @@ func (p *Parser) curPrecedence() int {
 	return LOWEST
 }
 
+// parseIdentifier 식별자를 파싱한다.
 func (p *Parser) parseIdentifier() ast.Expression {
 	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
+// parseIntegerLiteral 정수 리터럴을 파싱한다.
 func (p *Parser) parseIntegerLiteral() ast.Expression {
 	lit := &ast.IntegerLiteral{Token: p.curToken}
 
@@ -269,15 +281,19 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 	return lit
 }
 
+// parsePrefixExpression 전위 연산자를 파싱한다.
 func (p *Parser) parsePrefixExpression() ast.Expression {
 	expression := &ast.PrefixExpression{
 		Token:    p.curToken,
 		Operator: p.curToken.Literal,
 	}
-
+	// 다음 토큰으로 진행한다.
 	p.nextToken()
 
-	expression.Right = p.parseExpression(PREFIX)
+	// -5 라면 nextToken 을 호출한 이후의 curToken 은 5 이다.
+	// parseExpression 은 5를 파싱하게 되고 IntegerLiteral ast 노드를 반환한다. -> 재귀적 접근
+	// 이 값이 PrefixExpression 의 Right 필드에 들어간다.
+	expression.Right = p.parseExpression(PREFIX) // TODO: 왜 PREFIX 인지 이해 필요
 
 	return expression
 }

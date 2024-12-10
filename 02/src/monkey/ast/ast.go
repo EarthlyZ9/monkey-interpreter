@@ -50,7 +50,7 @@ func (p *Program) String() string {
 
 // Statements
 
-// LetStatement represents a 'let' statement
+// LetStatement represents a 'let' statement (명령문)
 type LetStatement struct {
 	Token token.Token // the token.LET token
 	Name  *Identifier
@@ -75,7 +75,7 @@ func (ls *LetStatement) String() string {
 	return out.String()
 }
 
-// ReturnStatement represents a 'return' statement
+// ReturnStatement represents a 'return' statement (명령문)
 type ReturnStatement struct {
 	Token       token.Token // the 'return' token
 	ReturnValue Expression
@@ -97,6 +97,8 @@ func (rs *ReturnStatement) String() string {
 	return out.String()
 }
 
+// ExpressionStatement represents an expression statement (표현식 + 명령문)
+// 명령문은 let x = 10; 와 같은 형태를 띨 수 있지만 x + 10; 과 같은 형태일 수도 있다.
 type ExpressionStatement struct {
 	Token      token.Token // the first token of the expression
 	Expression Expression
@@ -149,19 +151,21 @@ func (b *Boolean) expressionNode()      {}
 func (b *Boolean) TokenLiteral() string { return b.Token.Literal }
 func (b *Boolean) String() string       { return b.Token.Literal }
 
+// IntegerLiteral 정수 리터럴
 type IntegerLiteral struct {
 	Token token.Token
-	Value int64
+	Value int64 // string 이 아닌 int64 로 저장
 }
 
 func (il *IntegerLiteral) expressionNode()      {}
 func (il *IntegerLiteral) TokenLiteral() string { return il.Token.Literal }
 func (il *IntegerLiteral) String() string       { return il.Token.Literal }
 
+// PrefixExpression 전위식을 표현
 type PrefixExpression struct {
 	Token    token.Token // The prefix token, e.g. !
 	Operator string
-	Right    Expression
+	Right    Expression // 연산자 오른쪽에 오는 표현식
 }
 
 func (pe *PrefixExpression) expressionNode()      {}
@@ -177,8 +181,9 @@ func (pe *PrefixExpression) String() string {
 	return out.String()
 }
 
+// InfixExpression 중위식을 표현 (이항 표현식이라고도 함)  // FIXME: 여기서부터
 type InfixExpression struct {
-	Token    token.Token // The operator token, e.g. +
+	Token    token.Token // 연산자 토큰, e.g. +
 	Left     Expression
 	Operator string
 	Right    Expression
