@@ -19,6 +19,8 @@ const (
 	CALL        // myFunction(X)
 )
 
+// precedences 연산자 우선순위 맵
+// 연산 토큰과 연산자 우선순위를 매핑한다.
 var precedences = map[token.TokenType]int{
 	token.EQ:       EQUALS,
 	token.NOT_EQ:   EQUALS,
@@ -153,6 +155,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseLetStatement()
 	case token.RETURN:
 		return p.parseReturnStatement()
+		// 1 + 2 + 3; 같은 표현식문을 파싱한다면 가정하면, AST 는 ((1 + 2) + 3) 이 된다.
+		// 이 표현식을 파싱하기 위해 parseExpressionStatement 를 호출한다.
 	default:
 		return p.parseExpressionStatement()
 	}
@@ -177,7 +181,7 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 
 	// 4. 내부적으로 nextToken 을 호출하여 토큰을 진행시키고, 변수의 값을 파싱한다. (우항 부분)
 	p.nextToken()
-	stmt.Value = p.parseExpression(LOWEST) // TODO: 왜 LOWEST 인지 이해 필요
+	stmt.Value = p.parseExpression(LOWEST) // 표현식 파싱의 시작점이므로 우선순위를 가장 낮게 설정한다. README 참고
 
 	// 다음 토큰이 세미콜론이면 다음 토큰으로 진행한다.
 	if p.peekTokenIs(token.SEMICOLON) {
@@ -196,7 +200,7 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	p.nextToken()
 
 	// 3. 우항을 읽는다.
-	stmt.ReturnValue = p.parseExpression(LOWEST) // TODO: 왜 LOWEST 인지 이해 필요
+	stmt.ReturnValue = p.parseExpression(LOWEST) // 표현식 파싱의 시작점이므로 우선순위를 가장 낮게 설정한다. README 참고
 
 	// 4. 마지막 토큰이 세미콜론임을 확인하고, 세미콜론이라면 다음 토큰으로 진행한다.
 	if p.peekTokenIs(token.SEMICOLON) {
@@ -209,8 +213,9 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 // parseExpressionStatement 표현식문을 파싱하기 위한 Entrypoint 가 되는 함수
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
-
-	stmt.Expression = p.parseExpression(LOWEST) // TODO: 왜 LOWEST 인지 이해 필요
+	// 1 + 2 + 3; 같은 표현식문을 파싱한다면 가정하면, curToken 은 1 이고 peekToken 은 + 이다.
+	// 이 상태에서 parseExpression 을 호출하면, ->
+	stmt.Expression = p.parseExpression(LOWEST) // 표현식 파싱의 시작점이므로 우선순위를 가장 낮게 설정한다. README 참고
 
 	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
@@ -222,28 +227,54 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 // parseExpression 표현식을 실제 파싱한다.
 // precedence 는 연산자 우선순위를 나타낸다. (함수를 호출한 쪽에서만 알고 있는 우선순위를 전달해주는 것임)
 func (p *Parser) parseExpression(precedence int) ast.Expression {
+	// 1 + 2 + 3; 에서 curToken 이 1 이므로 parseIntegerLiteral 이 호출된다.
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		// 연관된 전위 연산자 파싱 함수가 없음 -> 에러 기록 후 return nil
 		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
+	// parseIntegerLiteral 호출의 결과로 *ast.IntegerLiteral 노드가 반환된다.
 	leftExp := prefix()
 
+	// for 문 조건: 다음 토큰이 세미콜론이 아니고 (=아직 표현식이 끝나지 않았고), 다음 토큰의 우선순위가 더 높다면!
+	// 1 + 2 + 3; 에서 다음 토큰인 + 연산자의 우선순위는 SUM 이고 현재 precedence 는 LOWEST 이므로 for문 조건에 해당된다.
 	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
+		// 1 + 2 + 3; 에서 peekToken 의 타입은 + 이므로 parseInfixExpression 이 infix 에 할당된다.
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
 			return leftExp
 		}
 
+		// leftExp 에 저장하기 전에, 다음 토큰으로 진행한다.
+		// (1번째 반복) 진행 후 curToken 은 + 이고 peekToken 은 2 이다.
+		// (2번째 반복) 진행 후 curToken 은 + 이고 peekToken 은 3 이다.
 		p.nextToken()
 
+		// (1번째 반복) leftExp = 1 (ast.IntegerLiteral) / curToken = + / peekToken = 2
+		// parseInfixExpression 을 호출하면,
+		// 1. curPrecedence 는 SUM 이다.
+		// 2. 다음 토큰으로 진행한다. 진행 후 curToken 은 2 이고 peekToken 은 + 이다.
+		// 3. curPrecedence 인 SUM 을 넘겨 parseExpression 을 호출한다.
+		// 4. 이때 다음 토큰인 + 연산자의 우선순위는 SUM 이고 현재 precedence 도 SUM 이므로 for문 조건에 해당되지 않는다.
+		// 5. 최종적으로 leftExp 에는 1 + 2 를 나타내는 *ast.InfixExpression 노드가 저장된다.
+		// 즉, infix 함수에 1 을 넣고 curToken 인 + 와 peekToken 인 2 를 조합하여 1 + 2 를 나타내는 노드가 된다.
 		leftExp = infix(leftExp)
+		// (2번째 반복) leftExp = 1 + 2 (ast.InfixExpression) / curToken = + / peekToken = 3
+		// parseInfixExpression 을 호출하면,
+		// 1. curPrecedence 는 SUM 이다.
+		// 2. 다음 토큰으로 진행한다. 진행 후 curToken 은 3 이고 peekToken 은 세미콜론이다.
+		// 3. curPrecedence 인 SUM 을 넘겨 parseExpression 을 호출한다.
+		// 4. 이때 다음 토큰이 세미콜론이므로 for문 조건에 해당되지 않는다.
+		// 5. 최종적으로 leftExp 에는 1 + 2(ast.InfixExpression) + 3(ast.IntegerLiteral) 을 나타내는 *ast.InfixExpression 노드가 저장된다.
+		// 즉, infix 함수에 1 + 2(ast.InfixExpression) 를 넣고 curToken 인 + 와 peekToken 인 3 을 조합하여 1 + 2 + 3 을 나타내는 노드가 된다.
 	}
+	// peekToken 이 세미콜론이므로 가장 외부에서 진행되었던 for 문을 빠져나오게 된다.
 
 	return leftExp
 }
 
+// peekPrecedence 다음 토큰 (peekToken) 의 우선순위를 반환한다.
 func (p *Parser) peekPrecedence() int {
 	if p, ok := precedences[p.peekToken.Type]; ok {
 		return p
@@ -252,6 +283,7 @@ func (p *Parser) peekPrecedence() int {
 	return LOWEST
 }
 
+// curPrecedence 현재 토큰 (curToken) 의 우선순위를 반환한다.
 func (p *Parser) curPrecedence() int {
 	if p, ok := precedences[p.curToken.Type]; ok {
 		return p
@@ -298,15 +330,22 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 	return expression
 }
 
+// parseInfixExpression 중위 표현식을 파싱한다.
 func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	expression := &ast.InfixExpression{
 		Token:    p.curToken,
 		Operator: p.curToken.Literal,
 		Left:     left,
 	}
-
+	// leftExp = 1 (ast.IntegerLiteral) / curToken = + / peekToken = 2
+	// 위와 같은 상황이라고 가정하면,
+	// 현재 precedence 는 SUM 이다.
 	precedence := p.curPrecedence()
+	// 이 상태에서 다음 토큰으로 진행하면,
+	// curToken = 2 / peekToken = + 이다.
 	p.nextToken()
+	// precedence 가 SUM 인 상태에서 다시 parseExpression 을 호출하고 그 값을 Right 필드에 저장한다. (현재까지 2번 호출됨)
+	// 2번째 호출의 결과로 2를 표현하는 *ast.IntegerLiteral 노드가 반환된다.
 	expression.Right = p.parseExpression(precedence)
 
 	return expression

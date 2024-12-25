@@ -181,7 +181,7 @@ func (pe *PrefixExpression) String() string {
 	return out.String()
 }
 
-// InfixExpression 중위식을 표현 (이항 표현식이라고도 함)  // FIXME: 여기서부터
+// InfixExpression 중위식을 표현 (이항 표현식이라고도 함)
 type InfixExpression struct {
 	Token    token.Token // 연산자 토큰, e.g. +
 	Left     Expression
