@@ -323,9 +323,9 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 	p.nextToken()
 
 	// -5 라면 nextToken 을 호출한 이후의 curToken 은 5 이다.
-	// parseExpression 은 5를 파싱하게 되고 IntegerLiteral ast 노드를 반환한다. -> 재귀적 접근
-	// 이 값이 PrefixExpression 의 Right 필드에 들어간다.
-	expression.Right = p.parseExpression(PREFIX) // TODO: 왜 PREFIX 인지 이해 필요
+	// parseExpression 은 5를 파싱하게 되고 그 결과로 *ast.IntegerLiteral 노드가 반환된다.
+	// precedence 를 PREFIX 로 설정하는 이유는 RBP 를 높게 설정하여 오른쪽의 5가 왼쪽으로 묶이도록 하기 위함이다. (README 참고)
+	expression.Right = p.parseExpression(PREFIX)
 
 	return expression
 }
@@ -351,15 +351,18 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	return expression
 }
 
+// parseBoolean 불리언을 파싱한다.
 func (p *Parser) parseBoolean() ast.Expression {
 	return &ast.Boolean{Token: p.curToken, Value: p.curTokenIs(token.TRUE)}
 }
 
+// parseGroupedExpression 괄호로 둘러싼 표현식을 파싱한다.
 func (p *Parser) parseGroupedExpression() ast.Expression {
 	p.nextToken()
 
 	exp := p.parseExpression(LOWEST)
 
+	// parseExpression 을 호출한 이후에는 다음 토큰이 RPAREN 이어야 한다.
 	if !p.expectPeek(token.RPAREN) {
 		return nil
 	}
@@ -367,6 +370,7 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 	return exp
 }
 
+// parseIfExpression if 문을 파싱한다.
 func (p *Parser) parseIfExpression() ast.Expression {
 	expression := &ast.IfExpression{Token: p.curToken}
 
