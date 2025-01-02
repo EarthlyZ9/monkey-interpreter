@@ -81,7 +81,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
 	p.registerInfix(token.LT, p.parseInfixExpression)
 	p.registerInfix(token.GT, p.parseInfixExpression)
-
+	// 함수 호출문에서 ( 를 식별자와 인수 리스트 사이에 위치한다. -> 중위 연산자로 처리한다: registerInfix
 	p.registerInfix(token.LPAREN, p.parseCallExpression)
 
 	// Read two tokens, so curToken and peekToken are both set
@@ -375,22 +375,27 @@ func (p *Parser) parseIfExpression() ast.Expression {
 	expression := &ast.IfExpression{Token: p.curToken}
 
 	if !p.expectPeek(token.LPAREN) {
+		// if 다음에 ( 가 오지 않으면 에러를 기록하고 nil 을 반환한다.
 		return nil
 	}
+	// if 다음에 ( 가 오는게 맞다면 expectPeek 을 통해 다음 토큰으로 진행한다.
 
 	p.nextToken()
 	expression.Condition = p.parseExpression(LOWEST)
 
+	// 다음 토큰이 ) 인지 확인하고, ) 이라면 다음 토큰으로 진행한다.
 	if !p.expectPeek(token.RPAREN) {
 		return nil
 	}
 
+	// 괄호에 쌓인 조건문 이후에는 블록문이 와야한다.
 	if !p.expectPeek(token.LBRACE) {
 		return nil
 	}
 
 	expression.Consequence = p.parseBlockStatement()
 
+	// else 가 있다면 블록문을 파싱하고 Alternative 필드에 저장한다.
 	if p.peekTokenIs(token.ELSE) {
 		p.nextToken()
 
@@ -404,10 +409,12 @@ func (p *Parser) parseIfExpression() ast.Expression {
 	return expression
 }
 
+// parseBlockStatement 블록문을 파싱한다.
 func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	block := &ast.BlockStatement{Token: p.curToken}
 	block.Statements = []ast.Statement{}
 
+	// 중괄호 다음으로 넘어가기 위함
 	p.nextToken()
 
 	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
@@ -421,37 +428,46 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	return block
 }
 
+// parseFunctionLiteral fn 키워드를 가지는 함수 리터럴을 파싱한다.
 func (p *Parser) parseFunctionLiteral() ast.Expression {
 	lit := &ast.FunctionLiteral{Token: p.curToken}
 
+	// fn 다음에는 ( 가 와야한다. 온다면 다음 토큰으로 진행한다.
 	if !p.expectPeek(token.LPAREN) {
 		return nil
 	}
 
+	// parseFunctionParameters 를 호출하여 파라미터를 파싱한다. 이는 Identifier 노드의 슬라이스로 반환된다.
 	lit.Parameters = p.parseFunctionParameters()
 
 	if !p.expectPeek(token.LBRACE) {
 		return nil
 	}
 
+	// 함수의 본문을 파싱한다.
 	lit.Body = p.parseBlockStatement()
 
 	return lit
 }
 
+// parseFunctionParameters 함수 파라미터를 파싱한다.
 func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 	identifiers := []*ast.Identifier{}
 
 	if p.peekTokenIs(token.RPAREN) {
+		// 다음 토큰이 ) 이라면 파라미터가 더 이상 없다는 의미이므로 다음 토큰인 ) 로 진행한 뒤 현재까지의 identifiers 를 반환한다.
 		p.nextToken()
 		return identifiers
 	}
 
+	// 다음 토큰이 ) 이 아니라면 다음 토큰으로 진행하여 파라미터들을 파싱한다.
 	p.nextToken()
 
+	// 첫번째 파라미터를 Identifier 로 만들고 identifiers 슬라이스에 추가한다.
 	ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	identifiers = append(identifiers, ident)
 
+	// 다음 토큰이 , 이라면 다음 파라미터가 더 있다는 의미이므로 다음, 다음 토큰으로 진행한다.
 	for p.peekTokenIs(token.COMMA) {
 		p.nextToken()
 		p.nextToken()
@@ -459,6 +475,7 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 		identifiers = append(identifiers, ident)
 	}
 
+	// 다음 토큰은 무조건 ) 이어야 하므로 그렇지 않은 경우 nil 을 반환한다.
 	if !p.expectPeek(token.RPAREN) {
 		return nil
 	}
@@ -466,23 +483,33 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 	return identifiers
 }
 
+// parseCallExpression 함수 호출을 파싱한다.
+//
+// add(1, 2) 와 같은 단순한 함수 호출일 수 있으나,
+// add(2 + 2, 3 * 3) 과 같이 복잡한 함수 호출일 수도 있다.
+// add 라는 함수가 add 라는 식별자에 엮여 있는 것이므로 실제로는 add 를 함수 리터럴로 대체해야 한다.
+// fn(x, y) { x + y } (2, 3) 이라면, fn(x, y) { x + y } 를 함수 리터럴로 대체하고, (2, 3) 을 함수 호출 인자로 대체해야 한다.
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}
 	exp.Arguments = p.parseCallArguments()
 	return exp
 }
 
+// parseCallArguments 함수 호출 인자를 파싱한다.
 func (p *Parser) parseCallArguments() []ast.Expression {
 	args := []ast.Expression{}
 
+	// 다음 토큰이 ) 이라면 인자가 더 이상 없다는 의미이므로 다음 토큰으로 진행한 뒤 현재까지의 args 를 반환한다.
 	if p.peekTokenIs(token.RPAREN) {
 		p.nextToken()
 		return args
 	}
-
+	// 다음 토큰이 ) 이 아니라면 다음 토큰으로 진행하여 인자들을 파싱한다.
 	p.nextToken()
+	// 첫번째 인자를 파싱하여 args 슬라이스에 추가한다.
 	args = append(args, p.parseExpression(LOWEST))
 
+	// 다음 토큰이 , 이라면 다음 인자가 더 있다는 의미이므로 다음, 다음 토큰으로 진행한다.
 	for p.peekTokenIs(token.COMMA) {
 		p.nextToken()
 		p.nextToken()

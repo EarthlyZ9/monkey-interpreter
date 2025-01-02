@@ -253,6 +253,9 @@ func (fl *FunctionLiteral) String() string {
 	return out.String()
 }
 
+// CallExpression 함수 호출 표현식
+// add(1, 2) 는 결국 fn add(x, y) { x + y }(1, 2) 와 같은 형태로 함수 리터럴로 변환되는 것이므로
+// CallExpression 은 ( 토큰으로 시작하는 함수 호출 표현식을 나타낸다.
 type CallExpression struct {
 	Token     token.Token // The '(' token
 	Function  Expression  // Identifier or FunctionLiteral

@@ -11,15 +11,18 @@ import (
 const PROMPT = ">> "
 
 func Start(in io.Reader, out io.Writer) {
+	// 입력을 받아서 처리하는 루프
 	scanner := bufio.NewScanner(in)
 
 	for {
 		fmt.Printf(PROMPT)
 		scanned := scanner.Scan()
+		// 다음 토큰이 없다면 종료
 		if !scanned {
 			return
 		}
 
+		// 가장 최근의 토큰을 가져온다.
 		line := scanner.Text()
 		l := lexer.New(line)
 		p := parser.New(l)
