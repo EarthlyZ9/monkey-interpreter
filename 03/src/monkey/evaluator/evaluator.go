@@ -7,11 +7,14 @@ import (
 )
 
 var (
+	// boolean 객체는 항상 두 개 뿐이므로 매번 객체를 새로 만드는 방식이 아닌, 미리 만들어 하나만 사용하는 것으로 한다.
+	// null 도 마찬가지
 	NULL  = &object.Null{}
 	TRUE  = &object.Boolean{Value: true}
 	FALSE = &object.Boolean{Value: false}
 )
 
+// Eval 함수는 AST 노드를 평가하고 Object를 반환한다. 이는 재귀적으로 호출된다.
 func Eval(node ast.Node, env *object.Environment) object.Object {
 	switch node := node.(type) {
 
@@ -47,6 +50,8 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return nativeBoolToBooleanObject(node.Value)
 
 	case *ast.PrefixExpression:
+		// 전위 표현식을 평가한다.
+		// Monkey 언어에서는 !와 - 연산자만을 지원한다.
 		right := Eval(node.Right, env)
 		if isError(right) {
 			return right
@@ -54,6 +59,7 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return evalPrefixExpression(node.Operator, right)
 
 	case *ast.InfixExpression:
+		// 중위 표현식을 평가한다.
 		left := Eval(node.Left, env)
 		if isError(left) {
 			return left
@@ -131,6 +137,7 @@ func evalBlockStatement(
 	return result
 }
 
+// nativeBoolToBooleanObject 함수는 Go의 bool 타입을 monkey 의 boolean 객체로 변환한다.
 func nativeBoolToBooleanObject(input bool) *object.Boolean {
 	if input {
 		return TRUE
@@ -138,23 +145,27 @@ func nativeBoolToBooleanObject(input bool) *object.Boolean {
 	return FALSE
 }
 
+// evalPrefixExpression 함수는 전위 연산자를 평가한다.
 func evalPrefixExpression(operator string, right object.Object) object.Object {
 	switch operator {
 	case "!":
 		return evalBangOperatorExpression(right)
 	case "-":
 		return evalMinusPrefixOperatorExpression(right)
+		// 지원하지 않는 전위 연산자의 경우 에러를 반환한다.
 	default:
 		return newError("unknown operator: %s%s", operator, right.Type())
 	}
 }
 
+// evalInfixExpression 함수는 중위 표현식을 평가한다.
 func evalInfixExpression(
 	operator string,
 	left, right object.Object,
 ) object.Object {
 	switch {
 	case left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ:
+		// 정수끼리의 중위 표현식 평가
 		return evalIntegerInfixExpression(operator, left, right)
 	case operator == "==":
 		return nativeBoolToBooleanObject(left == right)
@@ -169,6 +180,7 @@ func evalInfixExpression(
 	}
 }
 
+// evalBangOperatorExpression 함수는 ! 연산자를 평가한다.
 func evalBangOperatorExpression(right object.Object) object.Object {
 	switch right {
 	case TRUE:
@@ -182,6 +194,7 @@ func evalBangOperatorExpression(right object.Object) object.Object {
 	}
 }
 
+// evalMinusPrefixOperatorExpression 함수는 - 연산자를 평가한다.
 func evalMinusPrefixOperatorExpression(right object.Object) object.Object {
 	if right.Type() != object.INTEGER_OBJ {
 		return newError("unknown operator: -%s", right.Type())
@@ -191,6 +204,7 @@ func evalMinusPrefixOperatorExpression(right object.Object) object.Object {
 	return &object.Integer{Value: -value}
 }
 
+// evalIntegerInfixExpression 함수는 정수형 중위 표현식을 평가한다.
 func evalIntegerInfixExpression(
 	operator string,
 	left, right object.Object,

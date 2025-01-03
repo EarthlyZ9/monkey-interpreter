@@ -21,11 +21,16 @@ const (
 	FUNCTION_OBJ = "FUNCTION"
 )
 
+// Object 소스코드를 평가하면서 확인하는 모든 값은 Object 인터페이스로 표현한다.
 type Object interface {
 	Type() ObjectType
 	Inspect() string
 }
 
+// Integer 는 정수 값을 나타내는 객체이다.
+// 파서가 정수 리터럴을 만나면 우선 ast.IntegerLiteral 노드를 생성할 것이다.
+// 그리고 나서 AST 를 평가할 때에는 ast.IntegerLiteral 노드를 평가하여 Integer 객체를 생성할 것이다.
+// Integer 의 Value 필드는 전달받은 *ast.IntegerLiteral 노드의 Value 필드와 같아야 한다.
 type Integer struct {
 	Value int64
 }
