@@ -50,6 +50,9 @@ type Null struct{}
 func (n *Null) Type() ObjectType { return NULL_OBJ }
 func (n *Null) Inspect() string  { return "null" }
 
+// ReturnValue 는 반환값을 나타내는 객체이다.
+// ReturnValue 는 단순히 다른 Object 를 감싸고 있는 Wrapper 로,
+// 반환값임을 표현할 뿐이며 프로그램은 ReturnValue 를 만나면 그 내부의 Object 를 꺼내어 반환한다.
 type ReturnValue struct {
 	Value Object
 }

@@ -107,6 +107,7 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 		result = Eval(statement, env)
 
 		switch result := result.(type) {
+		// 평가한 statement 가 ReturnValue 객체인 경우 반환값을 반환한다.
 		case *object.ReturnValue:
 			return result.Value
 		case *object.Error:
@@ -117,6 +118,7 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 	return result
 }
 
+// evalBlockStatement 함수는 블록문을 평가한다.
 func evalBlockStatement(
 	block *ast.BlockStatement,
 	env *object.Environment,
@@ -128,6 +130,7 @@ func evalBlockStatement(
 
 		if result != nil {
 			rt := result.Type()
+			// 블록문을 평가할 때도 ReturnValue 객체가 반환되면 for 문을 탈출하고 해당 값을 반환한다.
 			if rt == object.RETURN_VALUE_OBJ || rt == object.ERROR_OBJ {
 				return result
 			}
@@ -235,6 +238,7 @@ func evalIntegerInfixExpression(
 	}
 }
 
+// evalIfExpression 함수는 if 표현식을 평가한다.
 func evalIfExpression(
 	ie *ast.IfExpression,
 	env *object.Environment,
@@ -245,6 +249,7 @@ func evalIfExpression(
 	}
 
 	if isTruthy(condition) {
+		// truthy 한 값인 경우 Consequence 블록을 평가한다.
 		return Eval(ie.Consequence, env)
 	} else if ie.Alternative != nil {
 		return Eval(ie.Alternative, env)
@@ -265,6 +270,8 @@ func evalIdentifier(
 	return val
 }
 
+// isTruthy 함수는 주어진 객체가 참인지 거짓인지 판단한다.
+// monkey 언어에서는 null과 false가 거짓이고, 그 외의 값은 모두 참이다.
 func isTruthy(obj object.Object) bool {
 	switch obj {
 	case NULL:
