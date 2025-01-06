@@ -14,6 +14,7 @@ const PROMPT = ">> "
 
 func Start(in io.Reader, out io.Writer) {
 	scanner := bufio.NewScanner(in)
+	// 프로그램을 실행하기 위한 환경을 생성한다.
 	env := object.NewEnvironment()
 
 	for {

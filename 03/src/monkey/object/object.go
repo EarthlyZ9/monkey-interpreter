@@ -60,17 +60,26 @@ type ReturnValue struct {
 func (rv *ReturnValue) Type() ObjectType { return RETURN_VALUE_OBJ }
 func (rv *ReturnValue) Inspect() string  { return rv.Value.Inspect() }
 
+// Error 는 에러를 나타내는 객체이다.
+// 에러 객체의 구현은 Return 객체의 구현과 거의 동일하다. 두 객체 모두 다수의 명령문을 평가하다가 도중에 멈추게 해야하기 때문이다.
 type Error struct {
 	Message string
 }
 
 func (e *Error) Type() ObjectType { return ERROR_OBJ }
-func (e *Error) Inspect() string  { return "ERROR: " + e.Message }
 
+// Inspect 메서드는 에러 객체의 Message 필드를 반환한다.
+// 여기서는 단순히 에러 메시지만을 반환하도록 구현했지만,
+// 렉서가 토큰을 생성할 때 행과 열 번호를 포함시킨다면 에러 트레이스도 구현 가능하다.
+func (e *Error) Inspect() string { return "ERROR: " + e.Message }
+
+// Function 은 함수를 나타내는 객체이다.
+// Env 필드는 함수만의 자체 환경을 나타낸다.
+// 이는 클로저 개념을 구현할 수 있는 기반이 된다. Env 에는 클로저가 정의되었을 당시의 환경이 저장된다.
 type Function struct {
 	Parameters []*ast.Identifier
 	Body       *ast.BlockStatement
-	Env        *Environment
+	Env        *Environment // object.Environment 에 대한 포인터
 }
 
 func (f *Function) Type() ObjectType { return FUNCTION_OBJ }

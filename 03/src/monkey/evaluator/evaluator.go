@@ -84,16 +84,19 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return &object.Function{Parameters: params, Env: env, Body: body}
 
 	case *ast.CallExpression:
-		function := Eval(node.Function, env)
+		// CallExpression 의 Function 은 FunctionLiteral 일 수 있고 Identifier 일 수 있다.
+		function := Eval(node.Function, env) // 항상 *object.Function 타입을 반환한다.
 		if isError(function) {
 			return function
 		}
 
+		// add(2 + 2, 4 + 4) 와 같은 형태로 평가할 수 있어야 하므로 함수의 인자들을 하나씩 평가한다.
 		args := evalExpressions(node.Arguments, env)
 		if len(args) == 1 && isError(args[0]) {
 			return args[0]
 		}
 
+		// 어떤 함수를 호출할 지와 어떤 인자들을 사용할지 결정되었으므로 이를 적용한다.
 		return applyFunction(function, args)
 	}
 
@@ -110,6 +113,7 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 		// 평가한 statement 가 ReturnValue 객체인 경우 반환값을 반환한다.
 		case *object.ReturnValue:
 			return result.Value
+			// 에러 객체인 경우 그대로 반환한다.
 		case *object.Error:
 			return result
 		}
@@ -258,10 +262,12 @@ func evalIfExpression(
 	}
 }
 
+// evalIdentifier 함수는 식별자를 평가한다.
 func evalIdentifier(
 	node *ast.Identifier,
 	env *object.Environment,
 ) object.Object {
+	// 환경에서 식별자에 해당하는 값을 찾아 반환한다.
 	val, ok := env.Get(node.Value)
 	if !ok {
 		return newError("identifier not found: " + node.Value)
@@ -285,6 +291,7 @@ func isTruthy(obj object.Object) bool {
 	}
 }
 
+// newError 함수는 주어진 문자열을 이용해 Error 객체를 생성한다.
 func newError(format string, a ...interface{}) *object.Error {
 	return &object.Error{Message: fmt.Sprintf(format, a...)}
 }
@@ -313,6 +320,7 @@ func evalExpressions(
 	return result
 }
 
+// TODO: 여기 보기.
 func applyFunction(fn object.Object, args []object.Object) object.Object {
 	function, ok := fn.(*object.Function)
 	if !ok {
