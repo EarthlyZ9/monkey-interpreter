@@ -85,7 +85,9 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 
 	case *ast.CallExpression:
 		// CallExpression 의 Function 은 FunctionLiteral 일 수 있고 Identifier 일 수 있다.
-		function := Eval(node.Function, env) // 항상 *object.Function 타입을 반환한다.
+		// identifier 라면 evalIdentifier 내부에서 해당 식별자와 매핑된 FunctionLiteral 을 찾아 반환하게 될 것이고
+		// 그 결과로 node.Function 에는 항상 *object.Function 이 저장되게 된다.
+		function := Eval(node.Function, env)
 		if isError(function) {
 			return function
 		}
@@ -320,24 +322,38 @@ func evalExpressions(
 	return result
 }
 
-// TODO: 여기 보기.
+// applyFunction 함수의 몸체 (=블록문) 를 인수를 사용하여 평가한다.
 func applyFunction(fn object.Object, args []object.Object) object.Object {
 	function, ok := fn.(*object.Function)
 	if !ok {
 		return newError("not a function: %s", fn.Type())
 	}
 
+	// 함수 내부적으로 사용할 환경을 만든다.
+	// 함수의 몸체는 파라미터에 대한 참조를 다루기 때문에,
+	// 기존의 환경에서 실행을 할 경우 존재하지 않는 이름을 참조하는 형태가 된다.
+	// 따라서 새로운 환경을 만들어 함수의 환경을 확장한다.
+	// 이때 현재 환경에 전달된 인수를 그냥 추가해버리면 이전 바인딩이 덮어씌워지는 문제가 발생할 수 있기 때문에 환경을 '확장' 해야 한다.
 	extendedEnv := extendFunctionEnv(function, args)
+
+	// 확장한 환경을 넘겨 함수의 몸체를 평가한다.
 	evaluated := Eval(function.Body, extendedEnv)
+
+	// ReturnValue 를 풀어내지 않으면 return 문이 계속 함수를 타고 올라가 return 하는 순간 프로그램이 종료될 수 있으므로
+	// 풀어낸 값을 반환한다.
 	return unwrapReturnValue(evaluated)
 }
 
+// extendFunctionEnv 함수는 함수의 환경을 확장한다.
 func extendFunctionEnv(
 	fn *object.Function,
 	args []object.Object,
 ) *object.Environment {
+	// 기존 환경 env 를 outer env 로 가진 새로운 env 를 생성한다.
+	// Environment{ store: fn.Env, outer: NewEnvironment() }
 	env := object.NewEnclosedEnvironment(fn.Env)
 
+	// 평가한 인수들과 파라미터 이름 (식별자들)을 매핑하여 enclosed 환경에 추가한다.
 	for paramIdx, param := range fn.Parameters {
 		env.Set(param.Value, args[paramIdx])
 	}
@@ -345,6 +361,7 @@ func extendFunctionEnv(
 	return env
 }
 
+// unwrapReturnValue 함수는 ReturnValue 객체를 풀어낸다.
 func unwrapReturnValue(obj object.Object) object.Object {
 	if returnValue, ok := obj.(*object.ReturnValue); ok {
 		return returnValue.Value
