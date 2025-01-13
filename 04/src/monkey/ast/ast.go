@@ -265,6 +265,7 @@ func (ce *CallExpression) String() string {
 	return out.String()
 }
 
+// StringLiteral 문자열 리터럴을 표현하는 노드
 type StringLiteral struct {
 	Token token.Token
 	Value string
@@ -274,6 +275,7 @@ func (sl *StringLiteral) expressionNode()      {}
 func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
 func (sl *StringLiteral) String() string       { return sl.Token.Literal }
 
+// ArrayLiteral 배열 리터럴을 표현하는 노드
 type ArrayLiteral struct {
 	Token    token.Token // the '[' token
 	Elements []Expression
@@ -296,6 +298,7 @@ func (al *ArrayLiteral) String() string {
 	return out.String()
 }
 
+// IndexExpression 배열의 인덱스를 표현하는 노드 <expression>[<expression>]
 type IndexExpression struct {
 	Token token.Token // The [ token
 	Left  Expression
@@ -316,9 +319,10 @@ func (ie *IndexExpression) String() string {
 	return out.String()
 }
 
+// HashLiteral 해시 리터럴을 표현하는 노드
 type HashLiteral struct {
-	Token token.Token // the '{' token
-	Pairs map[Expression]Expression
+	Token token.Token               // the '{' token
+	Pairs map[Expression]Expression // 키와 값의 쌍을 저장하는 맵
 }
 
 func (hl *HashLiteral) expressionNode()      {}

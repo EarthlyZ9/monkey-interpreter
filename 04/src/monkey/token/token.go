@@ -28,7 +28,7 @@ const (
 	// Delimiters
 	COMMA     = ","
 	SEMICOLON = ";"
-	COLON     = ":"
+	COLON     = ":" // 해시 자료형의 콜론 표현 위함
 
 	LPAREN   = "("
 	RPAREN   = ")"

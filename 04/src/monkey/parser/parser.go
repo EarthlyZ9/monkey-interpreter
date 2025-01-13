@@ -17,7 +17,7 @@ const (
 	PRODUCT     // *
 	PREFIX      // -X or !X
 	CALL        // myFunction(X)
-	INDEX       // array[index]
+	INDEX       // array[index] -> 높은 우선순위를 가진다
 )
 
 var precedences = map[token.TokenType]int{
@@ -58,7 +58,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
 	p.registerPrefix(token.INT, p.parseIntegerLiteral)
-	p.registerPrefix(token.STRING, p.parseStringLiteral)
+	p.registerPrefix(token.STRING, p.parseStringLiteral) // String 타입을 파싱하기 위함
 	p.registerPrefix(token.BANG, p.parsePrefixExpression)
 	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
 	p.registerPrefix(token.TRUE, p.parseBoolean)
@@ -66,8 +66,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
 	p.registerPrefix(token.IF, p.parseIfExpression)
 	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
-	p.registerPrefix(token.LBRACKET, p.parseArrayLiteral)
-	p.registerPrefix(token.LBRACE, p.parseHashLiteral)
+	p.registerPrefix(token.LBRACKET, p.parseArrayLiteral) // 왼쪽 대괄호를 만나서 배열 리터럴 파싱
+	p.registerPrefix(token.LBRACE, p.parseHashLiteral)    // 왼쪽 중괄호를 만나서 해시 리터럴 파싱
 
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
 	p.registerInfix(token.PLUS, p.parseInfixExpression)
@@ -80,7 +80,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.GT, p.parseInfixExpression)
 
 	p.registerInfix(token.LPAREN, p.parseCallExpression)
-	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
+	p.registerInfix(token.LBRACKET, p.parseIndexExpression) // array[index] 에서 [ 를 중위연산자로 취급하여 왼쪽의 배열과 오른쪽의 인덱스 값을 연산하는 스킴
 
 	// Read two tokens, so curToken and peekToken are both set
 	p.nextToken()
@@ -261,6 +261,7 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 }
 
 func (p *Parser) parseStringLiteral() ast.Expression {
+	// String 토큰을 -> StringLiteral 타입으로 변환
 	return &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
 }
 
@@ -408,6 +409,7 @@ func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	return exp
 }
 
+// parseExpressionList 함수는 반점으로 구분된 표현식 목록을 end 토큰 타입이 나올 때까지 파싱한다.
 func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 	list := []ast.Expression{}
 
@@ -432,14 +434,16 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 	return list
 }
 
+// parseArrayLiteral 함수는 왼쪽 대괄호를 만나면 호출되며, 배열 리터럴을 파싱한다.
 func (p *Parser) parseArrayLiteral() ast.Expression {
 	array := &ast.ArrayLiteral{Token: p.curToken}
 
-	array.Elements = p.parseExpressionList(token.RBRACKET)
+	array.Elements = p.parseExpressionList(token.RBRACKET) // 오른쪽 대괄호가 나올 때까지 파싱한다.
 
 	return array
 }
 
+// parseIndexExpression 함수는 왼쪽 대괄호를 만나면 호출되며, 인덱스 연산을 파싱한다.
 func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
 	exp := &ast.IndexExpression{Token: p.curToken, Left: left}
 
@@ -453,14 +457,18 @@ func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
 	return exp
 }
 
+// parseHashLiteral 함수는 왼쪽 중괄호를 만나면 호출되며, 해시 리터럴을 파싱한다.
 func (p *Parser) parseHashLiteral() ast.Expression {
-	hash := &ast.HashLiteral{Token: p.curToken}
+	hash := &ast.HashLiteral{Token: p.curToken} // '{'
+	// 해시 리터럴은 키와 값의 쌍으로 이루어져 있으므로, 키와 값의 쌍을 저장할 수 있는 맵을 만든다.
 	hash.Pairs = make(map[ast.Expression]ast.Expression)
 
+	// 해시 맵이 끝났음을 나타내는 오른쪽 중괄호가 나올 때까지 반복한다.
 	for !p.peekTokenIs(token.RBRACE) {
 		p.nextToken()
 		key := p.parseExpression(LOWEST)
 
+		// key 를 파싱한 이후에는 콜론이 나와야한다. 그렇지 않다면 바로 nil 반환
 		if !p.expectPeek(token.COLON) {
 			return nil
 		}
@@ -470,6 +478,7 @@ func (p *Parser) parseHashLiteral() ast.Expression {
 
 		hash.Pairs[key] = value
 
+		// value 를 파싱한 뒤에는 중괄호가 나오거나 반점이 나와야한다. 그렇지 않다면 바로 nil 반환
 		if !p.peekTokenIs(token.RBRACE) && !p.expectPeek(token.COMMA) {
 			return nil
 		}

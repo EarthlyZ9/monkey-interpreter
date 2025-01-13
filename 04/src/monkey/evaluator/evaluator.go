@@ -93,6 +93,7 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 
 		return applyFunction(function, args)
 
+		// 배열 리터럴을 평가하는 경우
 	case *ast.ArrayLiteral:
 		elements := evalExpressions(node.Elements, env)
 		if len(elements) == 1 && isError(elements[0]) {
@@ -248,10 +249,12 @@ func evalIntegerInfixExpression(
 	}
 }
 
+// evalStringInfixExpression 함수는 두 문자열을 연결하는 연산을 수행합니다.
 func evalStringInfixExpression(
 	operator string,
 	left, right object.Object,
 ) object.Object {
+	// 문자열 간의 덧셈 (concatenation) 연산만 지원
 	if operator != "+" {
 		return newError("unknown operator: %s %s %s",
 			left.Type(), operator, right.Type())
@@ -339,12 +342,15 @@ func evalExpressions(
 func applyFunction(fn object.Object, args []object.Object) object.Object {
 	switch fn := fn.(type) {
 
+	// 일반 사용자 정의 함수일 때
 	case *object.Function:
 		extendedEnv := extendFunctionEnv(fn, args)
 		evaluated := Eval(fn.Body, extendedEnv)
 		return unwrapReturnValue(evaluated)
 
+	// 내장 함수일 때
 	case *object.Builtin:
+		// 내장함수일 때에는 ReturnValue 객체를 반환할 일이 없으므로 unwrapReturnValue 함수를 사용하지 않음
 		return fn.Fn(args...)
 
 	default:
@@ -373,6 +379,7 @@ func unwrapReturnValue(obj object.Object) object.Object {
 	return obj
 }
 
+// evalIndexExpression 함수는 배열과 해시에 대한 인덱스 연산을 수행합니다.
 func evalIndexExpression(left, index object.Object) object.Object {
 	switch {
 	case left.Type() == object.ARRAY_OBJ && index.Type() == object.INTEGER_OBJ:
@@ -384,11 +391,13 @@ func evalIndexExpression(left, index object.Object) object.Object {
 	}
 }
 
+// evalArrayIndexExpression 함수는 배열에 대한 인덱스 연산을 수행합니다.
 func evalArrayIndexExpression(array, index object.Object) object.Object {
 	arrayObject := array.(*object.Array)
 	idx := index.(*object.Integer).Value
 	max := int64(len(arrayObject.Elements) - 1)
 
+	// 인덱스가 배열의 범위를 벗어나는 경우 NULL을 반환
 	if idx < 0 || idx > max {
 		return NULL
 	}

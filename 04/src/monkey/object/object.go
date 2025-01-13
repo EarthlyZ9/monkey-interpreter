@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+// BuiltinFunction 내장 함수를 표현하는 타입
+// 한 개 이상의 Object 를 받아 하나의 반환값으로서의 Object 를 반환하는 함수
 type BuiltinFunction func(args ...Object) Object
 
 type ObjectType string
@@ -18,14 +20,14 @@ const (
 
 	INTEGER_OBJ = "INTEGER"
 	BOOLEAN_OBJ = "BOOLEAN"
-	STRING_OBJ  = "STRING"
+	STRING_OBJ  = "STRING" // StringLiteral 을 평가하기 위한 객체
 
 	RETURN_VALUE_OBJ = "RETURN_VALUE"
 
 	FUNCTION_OBJ = "FUNCTION"
 	BUILTIN_OBJ  = "BUILTIN"
 
-	ARRAY_OBJ = "ARRAY"
+	ARRAY_OBJ = "ARRAY" // ArrayLiteral 을 평가하기 위한 객체
 	HASH_OBJ  = "HASH"
 )
 
@@ -115,6 +117,7 @@ func (f *Function) Inspect() string {
 	return out.String()
 }
 
+// String 문자열 리터럴을 평가하기 위한 객체
 type String struct {
 	Value string
 }
@@ -128,6 +131,7 @@ func (s *String) HashKey() HashKey {
 	return HashKey{Type: s.Type(), Value: h.Sum64()}
 }
 
+// Builtin 내장 함수를 표현하는 타입
 type Builtin struct {
 	Fn BuiltinFunction
 }
@@ -135,6 +139,7 @@ type Builtin struct {
 func (b *Builtin) Type() ObjectType { return BUILTIN_OBJ }
 func (b *Builtin) Inspect() string  { return "builtin function" }
 
+// Array 배열 리터럴을 평가하기 위한 객체
 type Array struct {
 	Elements []Object
 }
@@ -160,6 +165,7 @@ type HashPair struct {
 	Value Object
 }
 
+// Hash 해시 리터럴을 평가하기 위한 객체
 type Hash struct {
 	Pairs map[HashKey]HashPair
 }

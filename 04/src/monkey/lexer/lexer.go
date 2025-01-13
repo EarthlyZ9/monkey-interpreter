@@ -53,7 +53,7 @@ func (l *Lexer) NextToken() token.Token {
 		tok = newToken(token.GT, l.ch)
 	case ';':
 		tok = newToken(token.SEMICOLON, l.ch)
-	case ':':
+	case ':': // 해시 자료형의 콜론 표현 위함
 		tok = newToken(token.COLON, l.ch)
 	case ',':
 		tok = newToken(token.COMMA, l.ch)
@@ -65,12 +65,12 @@ func (l *Lexer) NextToken() token.Token {
 		tok = newToken(token.LPAREN, l.ch)
 	case ')':
 		tok = newToken(token.RPAREN, l.ch)
-	case '"':
+	case '"': // string type 을 처리하기 위함
 		tok.Type = token.STRING
 		tok.Literal = l.readString()
-	case '[':
+	case '[': // array type 을 처리하기 위함
 		tok = newToken(token.LBRACKET, l.ch)
-	case ']':
+	case ']': // array type 을 처리하기 위함
 		tok = newToken(token.RBRACKET, l.ch)
 	case 0:
 		tok.Literal = ""
@@ -101,6 +101,7 @@ func (l *Lexer) skipWhitespace() {
 
 func (l *Lexer) readChar() {
 	if l.readPosition >= len(l.input) {
+		// 입력의 끝에 도달했을 때
 		l.ch = 0
 	} else {
 		l.ch = l.input[l.readPosition]
@@ -133,11 +134,13 @@ func (l *Lexer) readNumber() string {
 	return l.input[position:l.position]
 }
 
+// readString 은 " 로 시작하는 문자열을 읽어들임
 func (l *Lexer) readString() string {
 	position := l.position + 1
 	for {
 		l.readChar()
 		if l.ch == '"' || l.ch == 0 {
+			// 끝나는 따옴표를 만나거나 입력의 끝에 도달했을 때
 			break
 		}
 	}
