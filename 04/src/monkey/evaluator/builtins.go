@@ -27,6 +27,7 @@ var builtins = map[string]*object.Builtin{
 		}
 	},
 	},
+	// 내장함수 puts 는 인자로 받은 객체를 출력한다. (출력만 하고 값을 만들어내지 않으므로 반환 값은 NULL)
 	"puts": &object.Builtin{
 		Fn: func(args ...object.Object) object.Object {
 			for _, arg := range args {

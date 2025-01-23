@@ -102,7 +102,7 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return &object.Array{Elements: elements}
 
 	case *ast.IndexExpression:
-		left := Eval(node.Left, env)
+		left := Eval(node.Left, env) // 왼쪽 대괄호의 왼쪽에 위치한 node 를 평가하여 Object 타입으로 반환
 		if isError(left) {
 			return left
 		}
@@ -112,7 +112,7 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		}
 		return evalIndexExpression(left, index)
 
-	case *ast.HashLiteral:
+	case *ast.HashLiteral: // 해시 리터럴을 평가하는 경우
 		return evalHashLiteral(node, env)
 
 	}
@@ -381,10 +381,13 @@ func unwrapReturnValue(obj object.Object) object.Object {
 
 // evalIndexExpression 함수는 배열과 해시에 대한 인덱스 연산을 수행합니다.
 func evalIndexExpression(left, index object.Object) object.Object {
+	// left 는 왼쪽 대괄호의 좌측에 위치한 node (Object) 이다.
 	switch {
 	case left.Type() == object.ARRAY_OBJ && index.Type() == object.INTEGER_OBJ:
+		// 배열에 대한 인덱스인 경우, 인덱스 값은 integer 여야 한다.
 		return evalArrayIndexExpression(left, index)
 	case left.Type() == object.HASH_OBJ:
+		// 해시에 대한 인덱스의 경우, left node 는 ast.HashLiteral 이어야 하며, index 는 hashable 해야 한다.
 		return evalHashIndexExpression(left, index)
 	default:
 		return newError("index operator not supported: %s", left.Type())
@@ -405,28 +408,34 @@ func evalArrayIndexExpression(array, index object.Object) object.Object {
 	return arrayObject.Elements[idx]
 }
 
+// evalHashLiteral 함수는 해시 리터럴을 평가함
 func evalHashLiteral(
 	node *ast.HashLiteral,
 	env *object.Environment,
 ) object.Object {
 	pairs := make(map[object.HashKey]object.HashPair)
 
+	// hash literal 의 각 키-값 쌍을 평가
 	for keyNode, valueNode := range node.Pairs {
+		// 우선 key node 를 평가한다.
 		key := Eval(keyNode, env)
 		if isError(key) {
 			return key
 		}
 
+		// key node 가 hashable 한지 확인한다. 그렇지 않다면 에러를 반환한다.
 		hashKey, ok := key.(object.Hashable)
 		if !ok {
 			return newError("unusable as hash key: %s", key.Type())
 		}
 
+		// value node 를 평가한다.
 		value := Eval(valueNode, env)
 		if isError(value) {
 			return value
 		}
 
+		// key node 를 사용해 HashKey 를 생성하고, 이를 사용해 HashPair 를 생성한다.
 		hashed := hashKey.HashKey()
 		pairs[hashed] = object.HashPair{Key: key, Value: value}
 	}
@@ -434,14 +443,17 @@ func evalHashLiteral(
 	return &object.Hash{Pairs: pairs}
 }
 
+// evalHashIndexExpression 함수는 해시에 대한 인덱스 연산을 수행함
 func evalHashIndexExpression(hash, index object.Object) object.Object {
 	hashObject := hash.(*object.Hash)
 
+	// 인덱스로 사용될 값은 hashaable 해야 한다.
 	key, ok := index.(object.Hashable)
 	if !ok {
 		return newError("unusable as hash key: %s", index.Type())
 	}
 
+	// hash Object 의 Pairs 맵에서 key 에 해당하는 value 를 찾아 반환한다.
 	pair, ok := hashObject.Pairs[key.HashKey()]
 	if !ok {
 		return NULL

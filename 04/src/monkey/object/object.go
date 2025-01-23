@@ -36,6 +36,7 @@ type HashKey struct {
 	Value uint64
 }
 
+// Hashable 해시 리터럴이나 해시 인덱스 표현식을 평가할 때, 주어진 객체가 해시키로 적절한지 평가하기 위함
 type Hashable interface {
 	HashKey() HashKey
 }
@@ -160,6 +161,11 @@ func (ao *Array) Inspect() string {
 	return out.String()
 }
 
+// HashPair 맵 자료형의 값을 표현하는 객체
+// monkey 언에서 map 은 map[object.HashKey]object.HashPair 로 표현되는데,
+// key: value 가 아닌 hashkey: hashpair 로 표현하는 이유는
+// key 가 겉보기에는 같더라도 실제로는 메모리상 다른 주소를 가진 값일 수 있기 때문이다. 이 경우 제대로 value 를 찾아낼 수 없다.
+// 그렇기에 hashkey 를 통해 hashpair 를 찾고 겉보기의 key 값을 hashpair 에 저장한다.
 type HashPair struct {
 	Key   Object
 	Value Object
